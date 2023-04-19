@@ -8,9 +8,9 @@ from telegram.ext import (
     filters
 )
 from consts import BOT_TOKEN
-from storage_api_controller import get_files_list, upload_file, download_file
+from storage_api_controller import get_files_list, upload_file, download_file, delete_file
 
-UPLOAD_FILE, FILENAME, VIEW_FILES, DOWNLOAD_FILE = range(4)
+UPLOAD_FILE, FILENAME, VIEW_FILES, DOWNLOAD_FILE, DELETE_FILE = range(5)
 
 
 async def start(update, context):
@@ -18,6 +18,7 @@ async def start(update, context):
         [telegram.KeyboardButton('/view_photos_list')],
         [telegram.KeyboardButton('/upload_photo')],
         [telegram.KeyboardButton('/download_photo')],
+        [telegram.KeyboardButton('/delete_photo')]
     ]
 
     reply_markup = telegram.ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -106,6 +107,36 @@ async def handle_download_file(update, context):
     await start(update, context)
     return ConversationHandler.END
 
+async def choose_file_for_delete(update, context):
+    files_list = get_files_list()
+    if not files_list:
+        await update.message.reply_text('Поки немає жодної фотографії')
+        await start(update, context)
+        return ConversationHandler.END
+
+    keyboard = [
+        [telegram.KeyboardButton(file)] for file in files_list
+    ]
+    reply_markup = telegram.ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text(
+        "Оберіть файл, який бажаєте видалити",
+        reply_markup=reply_markup
+    )
+
+    return DELETE_FILE
+
+
+async def handle_delete_file(update, context):
+    file_name = update.message.text.strip()
+    delete_file(file_name)
+
+
+    await update.message.reply_text(
+        "Фото успішно видалено з Google Cloud Storage!"
+    )
+    await start(update, context)
+    return ConversationHandler.END
+
 if __name__ == '__main__':
     application = Application.builder().token(BOT_TOKEN).build()
 
@@ -126,6 +157,15 @@ if __name__ == '__main__':
             },
             fallbacks=[],
         ))
+    application.add_handler(ConversationHandler(
+        entry_points=[CommandHandler('delete_photo', choose_file_for_delete)],
+        states={
+            DELETE_FILE: [
+                MessageHandler(filters.TEXT, handle_delete_file)
+                ],
+        },
+        fallbacks=[],
+    ))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photos))
     application.add_handler(
         CommandHandler("view_photos_list", handle_view_photos)

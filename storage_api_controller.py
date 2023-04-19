@@ -21,3 +21,9 @@ def download_file(file_name):
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(file_name)
     blob.download_to_filename(file_name)
+
+def delete_file(file_name):
+    blobs = client.list_blobs(bucket_name)
+    blobs = [blob for blob in blobs if blob.name == file_name]
+    for blob in blobs:
+        blob.delete()
